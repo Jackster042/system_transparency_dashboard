@@ -1,20 +1,31 @@
-import { db } from '@/db'
-import { pulses } from '@/db/schema'
+import postgres from 'postgres'
+import { pulses } from '../db/schema'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { drizzle } from 'drizzle-orm/postgres-js'
 
-const getPulses = createServerFn({ method: 'GET' }).handler(
-  async () =>
-    await db.select().from(pulses).orderBy(pulses.createdAt).limit(10),
-)
+const getPulses = createServerFn({ method: 'GET' }).handler(async () => {
+  // Initialize INSIDE the handler
+  const client = postgres(process.env.DATABASE_URL!, { prepare: false })
+  const db = drizzle(client)
+
+  try {
+    const data = await db.select().from(pulses).limit(10)
+    return { data }
+  } finally {
+    // Manually close the connection so it doesn't hang the worker
+    await client.end()
+  }
+})
 
 export const Route = createFileRoute('/')({
   component: App,
-  loader: () => getPulses(),
+  loader: async () => {
+    return await getPulses()
+  },
 })
 function App() {
   const getPulsesQuery = Route.useLoaderData()
-  console.log(getPulsesQuery[0], 'getPulsesQuery from db')
 
   return (
     <main className="p-4">
@@ -41,7 +52,7 @@ function App() {
         Recent Pulses( GLobal Feed )
       </h2>
       <div className="space-x-4">
-        {getPulsesQuery?.map((pulse) => (
+        {getPulsesQuery.data?.map((pulse) => (
           <div key={pulse.id} className="border rounded p-4 shadow-sm">
             <p className="font-medium">{pulse.authorName}</p>
             <p className="text-gray-700 mt-1">{pulse.content}</p>
