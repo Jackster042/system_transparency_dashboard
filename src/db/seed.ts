@@ -1,6 +1,5 @@
 import { db } from './index'
 import { pulses } from './schema'
-import { sql } from 'drizzle-orm'
 
 async function main() {
   console.log('🌱 Seeding database...')
