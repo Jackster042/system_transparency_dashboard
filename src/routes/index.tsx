@@ -1,37 +1,45 @@
-import postgres from 'postgres'
 import { pulses } from '../db/schema'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres-js'
 
-const getPulses = createServerFn({ method: 'GET' }).handler(async () => {
-  const client = postgres(process.env.DATABASE_URL!, { prepare: false })
-  const db = drizzle(client)
+const connectionString =
+  process.env.HYPERDRIVE_CONNECTION_STRING ||
+  process.env.DATABASE_URL ||
+  'postgresql://postgres:postgres@localhost:5432/system_transparency_db'
 
-  try {
-    const startTime = performance.now()
-    const data = await db.select().from(pulses).limit(10)
-    const endTime = performance.now()
-    const queryDuration = Math.round(endTime - startTime)
+const getPulses = createServerFn({ method: 'GET' }).handler(
+  async (ctx: any) => {
+    const client = postgres(connectionString, { prepare: false })
+    const db = drizzle(client)
 
-    const headers = new Headers()
-    const edgeCity = headers.get('x-vercel-ip-city') || 'Local Dev'
-    const edgeCountry = headers.get('x-vercel-ip-country') || 'N/A'
-    return {
-      data,
-      metrics: {
-        queryLatency: queryDuration,
-        edgeLocation: edgeCity,
-        edgeCountry: edgeCountry,
-        timestamp: new Date().toISOString(),
-        cacheStatus: 'MISS',
-      },
+    try {
+      const startTime = performance.now()
+      const data = await db.select().from(pulses).limit(10)
+      const endTime = performance.now()
+      const queryDuration = Math.round(endTime - startTime)
+
+      // Get headers from request, not empty Headers()
+      const edgeCity = ctx.request.headers.get('x-vercel-ip-city') || 'Unknown'
+      const edgeCountry =
+        ctx.request.headers.get('x-vercel-ip-country') || 'N/A'
+
+      return {
+        data,
+        metrics: {
+          queryLatency: queryDuration,
+          edgeLocation: edgeCity,
+          edgeCountry: edgeCountry,
+          timestamp: new Date().toISOString(),
+          cacheStatus: 'MISS',
+        },
+      }
+    } finally {
+      await client.end()
     }
-  } finally {
-    await client.end()
-  }
-})
-
+  },
+)
 export const Route = createFileRoute('/')({
   component: App,
   loader: async () => {
@@ -40,7 +48,6 @@ export const Route = createFileRoute('/')({
 })
 function App() {
   const getPulsesQuery = Route.useLoaderData()
-  console.log(getPulsesQuery)
 
   return (
     <div className="max-w-4xl mx-auto p-6 font-sans">

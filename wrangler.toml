@@ -1,0 +1,8 @@
+name = "system-transparency-dashboard"
+compatibility_date = "2024-12-18"
+
+[vars]
+DATABASE_HOST = "transparency-db.czk0a2gial31.eu-central-1.rds.amazonaws.com"
+DATABASE_NAME = "system_transparency_db"
+DATABASE_USER = "postgres"
+DATABASE_PASSWORD = "Mordheim2024!"
